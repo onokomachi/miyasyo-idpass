@@ -20,11 +20,13 @@ export default function ImportPanel({ onImported }: { onImported: () => void }) 
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
 
   const upload = async (file: File) => {
     setBusy(true);
     setError(null);
+    setErrorDetail(null);
     setResult(null);
     try {
       const form = new FormData();
@@ -33,6 +35,7 @@ export default function ImportPanel({ onImported }: { onImported: () => void }) 
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? '取り込みに失敗しました');
+        setErrorDetail(data.detail ?? null);
         return;
       }
       setResult(data as ImportResponse);
@@ -89,7 +92,14 @@ export default function ImportPanel({ onImported }: { onImported: () => void }) 
       {error && (
         <div className="mt-4 bg-rose-50 border-2 border-rose-200 rounded-xl p-4 text-rose-800 text-sm font-bold flex items-start gap-2">
           <AlertTriangle className="w-5 h-5 shrink-0" />
-          <span>{error}</span>
+          <div className="min-w-0">
+            <span>{error}</span>
+            {errorDetail && (
+              <p className="mt-1 text-xs font-mono font-normal text-rose-600 break-all">
+                {errorDetail}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
