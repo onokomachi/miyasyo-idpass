@@ -19,14 +19,25 @@ export async function GET(request: Request) {
   const grade = gradeParam ? Number(gradeParam) : undefined;
   const number = numberParam ? Number(numberParam) : undefined;
 
-  const [students, latestImport] = await Promise.all([
-    listStudents({
-      grade: Number.isFinite(grade) ? grade : undefined,
-      homeClass: classParam || undefined,
-      number: Number.isFinite(number) ? number : undefined,
-    }),
-    getLatestImport(),
-  ]);
+  try {
+    const [students, latestImport] = await Promise.all([
+      listStudents({
+        grade: Number.isFinite(grade) ? grade : undefined,
+        homeClass: classParam || undefined,
+        number: Number.isFinite(number) ? number : undefined,
+      }),
+      getLatestImport(),
+    ]);
 
-  return NextResponse.json({ students, latestImport, count: students.length });
+    return NextResponse.json({ students, latestImport, count: students.length });
+  } catch (e) {
+    console.error('[admin/students] 取得に失敗しました', e);
+    return NextResponse.json(
+      {
+        error: 'データベースの読み取りに失敗しました。サーバーの設定（Firebase認証情報）を確認してください。',
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 },
+    );
+  }
 }
