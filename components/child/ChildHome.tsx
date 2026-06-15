@@ -118,15 +118,27 @@ export default function ChildHome() {
 
         {!isLoading && status === 'error' && (
           <div className="bg-rose-50 border-2 border-rose-200 rounded-3xl p-8 text-center max-w-md w-full mx-auto">
-            <p className="font-extrabold text-rose-800 mb-4">
+            <p className="font-extrabold text-rose-800 mb-2">
               つうしんエラーがおきました。
             </p>
-            <button
-              onClick={fetchMe}
-              className="h-12 px-6 rounded-2xl font-extrabold text-sm bg-rose-600 text-white hover:bg-rose-700 transition-colors cursor-pointer"
-            >
-              もう一度ためす
-            </button>
+            <p className="text-xs text-rose-600 mb-6 leading-relaxed">
+              じかんをおいて もう一度ためすか、ログインしなおしてね。
+              なおらないときは 先生（せんせい）に きいてね。
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={fetchMe}
+                className="h-12 px-6 rounded-2xl font-extrabold text-sm bg-rose-600 text-white hover:bg-rose-700 transition-colors cursor-pointer"
+              >
+                もう一度ためす
+              </button>
+              <button
+                onClick={handleLogout}
+                className="h-12 px-6 rounded-2xl font-extrabold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              >
+                トップにもどる
+              </button>
+            </div>
           </div>
         )}
 
