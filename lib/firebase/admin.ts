@@ -53,3 +53,21 @@ export function getAdminAuth(): Auth {
 export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
 }
+
+// 設定不一致の切り分け用サマリ（秘密値は返さない）。
+// client_email には "...@<projectId>.iam.gserviceaccount.com" の形でプロジェクトが
+// 埋め込まれているため、FIREBASE_PROJECT_ID とのズレ（タイプミス）を検出できる。
+export function getAdminEnvSummary(): string {
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim() ?? '(未設定)';
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim() ?? '';
+  const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+
+  const emailProject =
+    clientEmail.match(/@([^.]+)\.iam\.gserviceaccount\.com$/)?.[1] ?? '(不明)';
+  const keyOk = privateKey?.startsWith('-----BEGIN') ? 'ok' : 'NG';
+  const mismatch = emailProject !== '(不明)' && emailProject !== projectId
+    ? ' ⚠️プロジェクトID不一致'
+    : '';
+
+  return `projectId=${projectId} / 鍵のプロジェクト=${emailProject} / 秘密鍵=${keyOk}${mismatch}`;
+}
