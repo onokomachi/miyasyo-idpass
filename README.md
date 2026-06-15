@@ -27,21 +27,24 @@
    - 「Authorized domains」に Vercel本番ドメインと `localhost` を追加
 3. **Firestore Database → 作成（本番モード・リージョン asia-northeast1 推奨）**
 4. **Firestore → ルール** に本リポジトリの `firestore.rules`（全拒否）を貼り付けて公開
-5. **プロジェクト設定 → 全般 → アプリを追加（Web）** で構成を取得
-6. **プロジェクト設定 → サービスアカウント → 新しい秘密鍵を生成**（JSONをダウンロード）
+5. **⚙️設定 → プロジェクトの設定 →「サービス アカウント」タブ → 新しい秘密鍵を生成**（JSONをダウンロード）
 
-### 2. 環境変数（`.env.example` を参照）
-`.env.local`（ローカル）と Vercel のプロジェクト設定に以下を設定します。
+> Web用構成（`NEXT_PUBLIC_FIREBASE_*`）は `lib/firebase/client.ts` に既定値として**埋め込み済み**です。
+> 別プロジェクトへ切り替える場合のみ環境変数で上書きしてください（通常は不要）。
 
-| 変数 | 取得元 | 公開 |
-|---|---|---|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` 他 `NEXT_PUBLIC_FIREBASE_*` | Webアプリ構成 | ブラウザ公開（秘密ではない） |
-| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | サービスアカウントJSON | **サーバー専用** |
-| `ADMIN_PASSWORD` | 管理ページのパスワード（既定 `444325`） | **サーバー専用** |
-| `ADMIN_SESSION_SECRET` | 32バイト以上のランダム文字列 | **サーバー専用** |
+### 2. 環境変数（必須なのは「サーバー専用」のみ）
+`.env.local`（ローカル）と Vercel のプロジェクト設定に、以下の**サーバー専用4種**を設定します（`.env.example` 参照）。
+
+| 変数 | 取得元 |
+|---|---|
+| `FIREBASE_PROJECT_ID` | サービスアカウントJSONの `project_id`（= `miyasyo-idpass`） |
+| `FIREBASE_CLIENT_EMAIL` | サービスアカウントJSONの `client_email` |
+| `FIREBASE_PRIVATE_KEY` | サービスアカウントJSONの `private_key` |
+| `ADMIN_PASSWORD` | 管理ページのパスワード（既定 `444325`） |
+| `ADMIN_SESSION_SECRET` | 32文字以上のランダム文字列 |
 
 > `FIREBASE_PRIVATE_KEY` は改行を `\n` のままにして、ダブルクォートで囲んでください（コード側で復元します）。
-> サーバー専用の変数には絶対に `NEXT_PUBLIC_` を付けないでください。
+> これらサーバー専用の変数には絶対に `NEXT_PUBLIC_` を付けないでください。
 
 ### 3. ローカル実行
 ```bash
