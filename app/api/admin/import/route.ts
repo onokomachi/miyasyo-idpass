@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/auth/requireAdmin';
 import { parseWorkbook } from '@/lib/excel/parseWorkbook';
 import { upsertStudents } from '@/lib/firestore/students';
+import { getAdminEnvSummary } from '@/lib/firebase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: 'データベースへの保存に失敗しました。サーバーの設定（Firebase認証情報）を確認してください。',
-        detail: e instanceof Error ? e.message : String(e),
+        detail: `${e instanceof Error ? e.message : String(e)} | ${getAdminEnvSummary()}`,
       },
       { status: 500 },
     );
