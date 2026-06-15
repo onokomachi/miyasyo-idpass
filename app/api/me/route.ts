@@ -14,10 +14,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
   }
 
-  const data = await getStudentByEmail(email);
-  if (!data) {
-    return NextResponse.json({ error: 'NOT_REGISTERED' }, { status: 404 });
+  try {
+    const data = await getStudentByEmail(email);
+    if (!data) {
+      return NextResponse.json({ error: 'NOT_REGISTERED' }, { status: 404 });
+    }
+    return NextResponse.json({ student: sanitizeStudent(data) });
+  } catch (e) {
+    console.error('[api/me] データ取得に失敗しました', e);
+    return NextResponse.json(
+      {
+        error: 'SERVER_ERROR',
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 503 },
+    );
   }
-
-  return NextResponse.json({ student: sanitizeStudent(data) });
 }
