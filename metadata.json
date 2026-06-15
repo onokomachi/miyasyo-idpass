@@ -1,0 +1,6 @@
+{
+  "name": "スマネクパス",
+  "description": "出席番号と誕生日を入力するだけで、スマイルネクストのIDとパスワードをすぐに確認できるかんたん確認ツールです。小学4年生が一人で使えるよう、シンプルでわかりやすくしています。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
