@@ -4,5 +4,15 @@ dist/
 coverage/
 .DS_Store
 *.log
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+
+# env files
 .env*
 !.env.example
+
+# TypeScript build info
+*.tsbuildinfo
