@@ -6,6 +6,7 @@ import {
   getApps,
   initializeApp,
   type App,
+  type ServiceAccount,
 } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
@@ -43,11 +44,23 @@ function getAdminApp(): App {
 
   return initializeApp({
     credential: cert({ projectId, clientEmail, privateKey }),
+    projectId,
   });
 }
 
 export function getAdminAuth(): Auth {
   return getAuth(getAdminApp());
+}
+
+// サービスアカウント情報を返す（Firestore REST API でのアクセストークン取得に使う）。
+export function getServiceAccount(): ServiceAccount & { privateKey: string } {
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error('Firebase Admin の環境変数が未設定です。');
+  }
+  return { projectId, clientEmail, privateKey };
 }
 
 // Firestoreはサーバーレス環境でgRPCの接続が不安定になることがある。

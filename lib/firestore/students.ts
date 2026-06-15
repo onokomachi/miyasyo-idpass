@@ -1,8 +1,13 @@
 import 'server-only';
 
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
 import type { StudentDoc } from '@/lib/model/student';
+import {
+  restGetDoc,
+  restSetDoc,
+  restBatchSet,
+  restRunQuery,
+  restListDocIds,
+} from '@/lib/firestore/firestoreRest';
 
 const STUDENTS = 'students';
 const IMPORTS = 'imports';
@@ -11,7 +16,7 @@ export interface ImportSummary {
   importBatchId: string;
   imported: number;
   skipped: number;
-  orphans: number; // DBにあるが今回ファイルに無い件数
+  orphans: number;
   importedAt: string; // ISO
   filename: string;
 }
@@ -20,53 +25,33 @@ export interface ImportSummary {
 export async function getStudentByEmail(
   email: string,
 ): Promise<Record<string, unknown> | null> {
-  const adminDb = getAdminDb();
-  const snap = await adminDb.collection(STUDENTS).doc(email).get();
-  return snap.exists ? (snap.data() as Record<string, unknown>) : null;
+  return restGetDoc(STUDENTS, email);
 }
 
-// 取り込み：emailキーで上書き（merge:false）。500件ずつバッチ。
-// 今回ファイルに無い既存児童は削除せず orphans としてカウントのみ返す。
+// 取り込み：emailキーで上書き。500件ずつバッチ。
 export async function upsertStudents(
   students: StudentDoc[],
   filename: string,
 ): Promise<ImportSummary> {
-  const adminDb = getAdminDb();
-  const batchRef = adminDb.collection(IMPORTS).doc();
-  const importBatchId = batchRef.id;
+  const importBatchId = crypto.randomUUID();
   const importedAtDate = new Date();
 
   // 既存メール集合（orphan 検出用）
-  const existingSnap = await adminDb.collection(STUDENTS).select('email').get();
-  const existingEmails = new Set(existingSnap.docs.map((d) => d.id));
+  const existingEmails = new Set(await restListDocIds(STUDENTS));
   const incomingEmails = new Set(students.map((s) => s.email));
 
-  // 書き込み（500件ずつ）
-  const CHUNK = 500;
-  for (let i = 0; i < students.length; i += CHUNK) {
-    const batch = adminDb.batch();
-    for (const s of students.slice(i, i + CHUNK)) {
-      const ref = adminDb.collection(STUDENTS).doc(s.email);
-      batch.set(ref, {
-        ...s,
-        importBatchId,
-        importedAt: FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-  }
+  // 書き込み（importedAt はサーバータイムスタンプ）
+  const docs = students.map((s) => ({
+    id: s.email,
+    data: { ...s, importBatchId } as Record<string, unknown>,
+  }));
+  await restBatchSet(STUDENTS, docs, ['importedAt']);
 
   let orphans = 0;
-  existingEmails.forEach((e) => {
-    if (!incomingEmails.has(e)) orphans++;
-  });
+  existingEmails.forEach((e) => { if (!incomingEmails.has(e)) orphans++; });
 
-  await batchRef.set({
-    filename,
-    count: students.length,
-    orphans,
-    importedAt: FieldValue.serverTimestamp(),
-  });
+  // import ログ
+  await restSetDoc(IMPORTS, importBatchId, { filename, count: students.length, orphans }, ['importedAt']);
 
   return {
     importBatchId,
@@ -88,26 +73,17 @@ export interface StudentFilter {
 export async function listStudents(
   filter: StudentFilter,
 ): Promise<Record<string, unknown>[]> {
-  const adminDb = getAdminDb();
-  let query: FirebaseFirestore.Query = adminDb.collection(STUDENTS);
-  if (typeof filter.grade === 'number') query = query.where('grade', '==', filter.grade);
-  if (filter.homeClass) query = query.where('homeClass', '==', filter.homeClass);
-  if (typeof filter.number === 'number') query = query.where('number', '==', filter.number);
+  const filters = [];
+  if (typeof filter.grade === 'number')
+    filters.push({ field: 'grade', op: 'EQUAL' as const, value: filter.grade });
+  if (filter.homeClass)
+    filters.push({ field: 'homeClass', op: 'EQUAL' as const, value: filter.homeClass });
+  if (typeof filter.number === 'number')
+    filters.push({ field: 'number', op: 'EQUAL' as const, value: filter.number });
 
-  const snap = await query.get();
-  const rows: Record<string, unknown>[] = snap.docs.map((d) => {
-    const data = d.data();
-    const importedAt = data.importedAt as { toDate?: () => Date } | undefined;
-    return {
-      ...data,
-      importedAt:
-        importedAt && typeof importedAt.toDate === 'function'
-          ? importedAt.toDate().toISOString()
-          : null,
-    };
-  });
+  const rows = await restRunQuery(STUDENTS, { filters });
 
-  // 並び替えはアプリ側で（複合インデックス不要にするため）。
+  // importedAt は ISO 文字列として返る（REST からは timestampValue）
   rows.sort((a, b) => {
     const ga = (a.grade as number) ?? 0;
     const gb = (b.grade as number) ?? 0;
@@ -127,20 +103,14 @@ export async function getLatestImport(): Promise<{
   filename: string | null;
   count: number | null;
 }> {
-  const adminDb = getAdminDb();
-  const snap = await adminDb
-    .collection(IMPORTS)
-    .orderBy('importedAt', 'desc')
-    .limit(1)
-    .get();
-  if (snap.empty) return { importedAt: null, filename: null, count: null };
-  const data = snap.docs[0].data();
-  const importedAt = data.importedAt as { toDate?: () => Date } | undefined;
+  const rows = await restRunQuery(IMPORTS, {
+    orderBy: [{ field: 'importedAt', direction: 'DESCENDING' }],
+    limit: 1,
+  });
+  if (rows.length === 0) return { importedAt: null, filename: null, count: null };
+  const data = rows[0];
   return {
-    importedAt:
-      importedAt && typeof importedAt.toDate === 'function'
-        ? importedAt.toDate().toISOString()
-        : null,
+    importedAt: (data.importedAt as string) ?? null,
     filename: (data.filename as string) ?? null,
     count: (data.count as number) ?? null,
   };
