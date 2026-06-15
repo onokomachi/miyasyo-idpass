@@ -37,7 +37,7 @@ export async function upsertStudents(
   const importedAtDate = new Date();
 
   // 既存メール集合（orphan 検出用）
-  const existingSnap = await adminDb.collection(STUDENTS).select().get();
+  const existingSnap = await adminDb.collection(STUDENTS).select('email').get();
   const existingEmails = new Set(existingSnap.docs.map((d) => d.id));
   const incomingEmails = new Set(students.map((s) => s.email));
 

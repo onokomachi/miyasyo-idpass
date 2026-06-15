@@ -50,8 +50,17 @@ export function getAdminAuth(): Auth {
   return getAuth(getAdminApp());
 }
 
+// Firestoreはサーバーレス環境でgRPCの接続が不安定になることがある。
+// preferRest: true でHTTP/RESTに切り替えることで解消する。
+// db.settings()はFirestore操作の前に一度だけ呼ぶ必要があるためここでキャッシュする。
+let cachedDb: Firestore | null = null;
+
 export function getAdminDb(): Firestore {
-  return getFirestore(getAdminApp());
+  if (cachedDb) return cachedDb;
+  const db = getFirestore(getAdminApp());
+  db.settings({ preferRest: true });
+  cachedDb = db;
+  return db;
 }
 
 // 設定不一致の切り分け用サマリ（秘密値は返さない）。
