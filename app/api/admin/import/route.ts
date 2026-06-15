@@ -51,11 +51,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const summary = await upsertStudents(parsed.students, file.name);
-
-  return NextResponse.json({
-    summary: { ...summary, skipped: parsed.warnings.length },
-    warnings: parsed.warnings,
-    totalRows: parsed.totalRows,
-  });
+  try {
+    const summary = await upsertStudents(parsed.students, file.name);
+    return NextResponse.json({
+      summary: { ...summary, skipped: parsed.warnings.length },
+      warnings: parsed.warnings,
+      totalRows: parsed.totalRows,
+    });
+  } catch (e) {
+    console.error('[admin/import] 保存に失敗しました', e);
+    return NextResponse.json(
+      {
+        error: 'データベースへの保存に失敗しました。サーバーの設定（Firebase認証情報）を確認してください。',
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 },
+    );
+  }
 }
