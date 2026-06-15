@@ -57,7 +57,7 @@ let cachedDb: Firestore | null = null;
 
 export function getAdminDb(): Firestore {
   if (cachedDb) return cachedDb;
-  const db = getFirestore(getAdminApp());
+  const db = getFirestore(getAdminApp(), 'miyasyo-pass');
   db.settings({ preferRest: true });
   cachedDb = db;
   return db;
