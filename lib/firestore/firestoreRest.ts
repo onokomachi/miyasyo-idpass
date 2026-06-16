@@ -6,6 +6,12 @@ import 'server-only';
 import { cert } from 'firebase-admin/app';
 import { getServiceAccount } from '@/lib/firebase/admin';
 
+// このプロジェクトのFirestoreデータベースIDは「default」（カッコ無し）。
+// 標準の無料データベースは本来「(default)」だが、作成時にIDへ default と
+// 入力されたため、名前付きデータベース default として作られている。
+// 直接観測（databases.list API）で確認済み。
+const DB_ID = 'default';
+
 type FVal =
   | { stringValue: string }
   | { integerValue: string }
@@ -84,7 +90,7 @@ async function getBearerToken(): Promise<string> {
 
 function baseUrl(): string {
   const { projectId } = getServiceAccount();
-  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${DB_ID}/documents`;
 }
 
 async function authHeaders() {
@@ -137,7 +143,7 @@ async function restServerTimestamp(
 ): Promise<void> {
   const { projectId } = getServiceAccount();
   const headers = await authHeaders();
-  const docName = `projects/${projectId}/databases/(default)/documents/${collection}/${encodeURIComponent(docId)}`;
+  const docName = `projects/${projectId}/databases/${DB_ID}/documents/${collection}/${encodeURIComponent(docId)}`;
   const writes = [{
     transform: {
       document: docName,
@@ -145,7 +151,7 @@ async function restServerTimestamp(
     },
   }];
   const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`,
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${DB_ID}/documents:commit`,
     { method: 'POST', headers, body: JSON.stringify({ writes }) },
   );
   if (!res.ok) throw new Error(`Firestore serverTimestamp: ${res.status} ${await res.text()}`);
@@ -167,7 +173,7 @@ export async function restBatchSet(
     const writes: unknown[] = [];
 
     for (const { id, data } of chunk) {
-      const docName = `projects/${projectId}/databases/(default)/documents/${collection}/${encodeURIComponent(id)}`;
+      const docName = `projects/${projectId}/databases/${DB_ID}/documents/${collection}/${encodeURIComponent(id)}`;
       writes.push({ update: { name: docName, fields: toFields(data) } });
       if (serverTimestampFields.length > 0) {
         writes.push({
@@ -183,7 +189,7 @@ export async function restBatchSet(
     }
 
     const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${DB_ID}/documents:commit`,
       { method: 'POST', headers, body: JSON.stringify({ writes }) },
     );
     if (!res.ok) throw new Error(`Firestore batchSet: ${res.status} ${await res.text()}`);
@@ -241,7 +247,7 @@ export async function restRunQuery(
   }
 
   const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${DB_ID}/documents:runQuery`,
     { method: 'POST', headers, body: JSON.stringify({ structuredQuery }) },
   );
   if (!res.ok) throw new Error(`Firestore runQuery: ${res.status} ${await res.text()}`);
