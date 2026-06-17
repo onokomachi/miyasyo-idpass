@@ -23,6 +23,7 @@ export default function ChildHome() {
     useAuthStore();
   const [showHelp, setShowHelp] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
 
   // 本人データを取得する。
   const fetchMe = useCallback(async () => {
@@ -68,6 +69,40 @@ export default function ChildHome() {
     return () => unsub();
   }, [fetchMe, setUser, reset]);
 
+  // メール＋Googleパスワードでの照合ログイン（Google認証を使わない方式）。
+  // 失敗時に入力内容を消さないため status は変えず、ローカルの busy だけ使う。
+  const handlePasswordLogin = useCallback(
+    async (email: string, password: string) => {
+      setSignInError(null);
+      setPwBusy(true);
+      try {
+        const res = await fetch('/api/login-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (res.status === 401) {
+          setSignInError('メールアドレスかパスワードがちがうみたい。もう一度ためしてね。');
+          playChime(false);
+          return;
+        }
+        if (!res.ok) {
+          setSignInError('つうしんエラーがおきました。じかんをおいてためしてね。');
+          return;
+        }
+        const data = (await res.json()) as { student: SanitizedStudent };
+        setRecord(data.student);
+        setStatus('ready');
+        playChime(true);
+      } catch {
+        setSignInError('つうしんエラーがおきました。じかんをおいてためしてね。');
+      } finally {
+        setPwBusy(false);
+      }
+    },
+    [setStatus, setRecord],
+  );
+
   const handleSignIn = useCallback(async () => {
     setSignInError(null);
     try {
@@ -109,7 +144,12 @@ export default function ChildHome() {
         )}
 
         {!isLoading && status === 'signedOut' && (
-          <SignInScreen onSignIn={handleSignIn} busy={false} error={signInError} />
+          <SignInScreen
+            onSignIn={handleSignIn}
+            onPasswordLogin={handlePasswordLogin}
+            busy={pwBusy}
+            error={signInError}
+          />
         )}
 
         {!isLoading && status === 'rejected' && (
