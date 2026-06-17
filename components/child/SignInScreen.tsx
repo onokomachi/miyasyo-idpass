@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { KeyRound, Eye, EyeOff } from 'lucide-react';
 
+// メールアドレスの共通部分（@より後ろ）。児童は@より前だけ入力すればよい。
+const EMAIL_DOMAIN = 'isesaki-school.ed.jp';
+
 export default function SignInScreen({
   onSignIn,
   onPasswordLogin,
@@ -14,14 +17,21 @@ export default function SignInScreen({
   busy: boolean;
   error?: string | null;
 }) {
-  const [email, setEmail] = useState('');
+  const [emailLocal, setEmailLocal] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // @を含めて入力された場合はそのまま、無ければ共通ドメインを補う。
+  const buildEmail = (input: string) => {
+    const v = input.trim();
+    if (!v) return '';
+    return v.includes('@') ? v : `${v}@${EMAIL_DOMAIN}`;
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || busy) return;
-    onPasswordLogin(email.trim(), password);
+    if (!emailLocal || !password || busy) return;
+    onPasswordLogin(buildEmail(emailLocal), password);
   };
 
   return (
@@ -44,15 +54,20 @@ export default function SignInScreen({
           <label className="text-[11px] font-extrabold text-slate-400 mb-1 block">
             Googleのメール
           </label>
-          <input
-            type="email"
-            inputMode="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="れい: 230478mgy@isesaki-school.ed.jp"
-            className="w-full h-13 py-3 bg-white border-2 border-slate-200 rounded-xl px-4 text-sm font-bold outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/30 transition-all"
-          />
+          <div className="flex items-stretch border-2 border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600/30 transition-all">
+            <input
+              type="text"
+              inputMode="email"
+              autoComplete="username"
+              value={emailLocal}
+              onChange={(e) => setEmailLocal(e.target.value)}
+              placeholder="メール"
+              className="flex-1 min-w-0 h-13 py-3 bg-white px-4 text-sm font-bold outline-none"
+            />
+            <span className="flex items-center px-3 bg-slate-50 text-slate-400 text-xs font-bold border-l-2 border-slate-200 select-none whitespace-nowrap">
+              @{EMAIL_DOMAIN}
+            </span>
+          </div>
         </div>
         <div>
           <label className="text-[11px] font-extrabold text-slate-400 mb-1 block">
@@ -80,9 +95,9 @@ export default function SignInScreen({
 
         <button
           type="submit"
-          disabled={busy || !email || !password}
+          disabled={busy || !emailLocal || !password}
           className={`w-full h-14 rounded-2xl font-extrabold text-base flex items-center justify-center gap-2 transition-all border-2 ${
-            busy || !email || !password
+            busy || !emailLocal || !password
               ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
               : 'bg-blue-600 border-blue-700 text-white hover:bg-blue-700 cursor-pointer active:scale-[0.99] shadow-sm'
           }`}
