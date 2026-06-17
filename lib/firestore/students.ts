@@ -2,7 +2,6 @@ import 'server-only';
 
 import type { StudentDoc } from '@/lib/model/student';
 import {
-  restGetDoc,
   restSetDoc,
   restBatchSet,
   restRunQuery,
@@ -22,10 +21,16 @@ export interface ImportSummary {
 }
 
 // メール（小文字）で1件取得。無ければ null。
+// ドキュメントID直接取得ではなく email フィールドのクエリで引く。
+// （ドキュメントIDに含まれる @ のエンコード差異に左右されないようにするため）
 export async function getStudentByEmail(
   email: string,
 ): Promise<Record<string, unknown> | null> {
-  return restGetDoc(STUDENTS, email);
+  const rows = await restRunQuery(STUDENTS, {
+    filters: [{ field: 'email', op: 'EQUAL', value: email.trim().toLowerCase() }],
+    limit: 1,
+  });
+  return rows[0] ?? null;
 }
 
 // 取り込み：emailキーで上書き。500件ずつバッチ。
