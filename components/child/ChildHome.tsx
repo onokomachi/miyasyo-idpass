@@ -18,6 +18,40 @@ import RejectedScreen from '@/components/child/RejectedScreen';
 import StudentHeader from '@/components/child/StudentHeader';
 import ServiceTabs from '@/components/child/ServiceTabs';
 
+// 一度ログインしたら端末（ローカルストレージ）に合言葉を保存し、
+// 次回は開くだけで自分の情報を表示できるようにする。
+const CRED_KEY = 'miyasho-pass:cred';
+
+function saveCred(email: string, password: string) {
+  try {
+    localStorage.setItem(CRED_KEY, JSON.stringify({ email, password }));
+  } catch {
+    /* localStorage 不可環境は無視 */
+  }
+}
+
+function loadCred(): { email: string; password: string } | null {
+  try {
+    const raw = localStorage.getItem(CRED_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (o && typeof o.email === 'string' && typeof o.password === 'string') {
+      return o;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function clearCred() {
+  try {
+    localStorage.removeItem(CRED_KEY);
+  } catch {
+    /* 無視 */
+  }
+}
+
 export default function ChildHome() {
   const { status, user, record, setStatus, setUser, setRecord, reset } =
     useAuthStore();
@@ -56,18 +90,50 @@ export default function ChildHome() {
     }
   }, [setStatus, setRecord]);
 
-  // Firebase の認証状態を監視。
+  // 保存済みの合言葉で自動ログインする（開いただけで表示するため）。
+  // 失敗（パスワード変更など）したら保存を消してログイン画面に戻す。
+  const autoLogin = useCallback(
+    async (email: string, password: string) => {
+      setStatus('fetching');
+      try {
+        const res = await fetch('/api/login-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          clearCred();
+          setStatus('signedOut');
+          return;
+        }
+        const data = (await res.json()) as { student: SanitizedStudent };
+        setRecord(data.student);
+        setStatus('ready');
+        playChime(true);
+      } catch {
+        setStatus('signedOut');
+      }
+    },
+    [setStatus, setRecord],
+  );
+
+  // Firebase の認証状態を監視。Googleログインが無ければ保存済みの合言葉を試す。
   useEffect(() => {
     const unsub = onAuthStateChanged(getClientAuth(), (u) => {
       setUser(u);
       if (u) {
         fetchMe();
       } else {
-        reset();
+        const cred = loadCred();
+        if (cred) {
+          autoLogin(cred.email, cred.password);
+        } else {
+          reset();
+        }
       }
     });
     return () => unsub();
-  }, [fetchMe, setUser, reset]);
+  }, [fetchMe, autoLogin, setUser, reset]);
 
   // メール＋Googleパスワードでの照合ログイン（Google認証を使わない方式）。
   // 失敗時に入力内容を消さないため status は変えず、ローカルの busy だけ使う。
@@ -91,6 +157,8 @@ export default function ChildHome() {
           return;
         }
         const data = (await res.json()) as { student: SanitizedStudent };
+        // 次回から開くだけで表示できるよう端末に保存。
+        saveCred(email, password);
         setRecord(data.student);
         setStatus('ready');
         playChime(true);
@@ -118,6 +186,7 @@ export default function ChildHome() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    clearCred();
     await signOut(getClientAuth());
     reset();
   }, [reset]);
