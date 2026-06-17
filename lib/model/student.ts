@@ -55,9 +55,17 @@ export interface SanitizedStudent {
 export function sanitizeStudent(
   data: Record<string, unknown>,
 ): SanitizedStudent {
-  const importedAt = data.importedAt as
-    | { toDate?: () => Date }
-    | undefined;
+  const rawImportedAt = data.importedAt;
+  let importedAtIso: string | null = null;
+  if (rawImportedAt && typeof rawImportedAt === 'object' && 'toDate' in rawImportedAt) {
+    // Firestore Timestamp（SDK経由）
+    const ts = rawImportedAt as { toDate?: () => Date };
+    if (typeof ts.toDate === 'function') importedAtIso = ts.toDate().toISOString();
+  } else if (typeof rawImportedAt === 'string') {
+    // REST API 経由は ISO 文字列で返る
+    importedAtIso = rawImportedAt;
+  }
+
   return {
     grade: (data.grade as number) ?? 0,
     homeClass: (data.homeClass as string) ?? '',
@@ -69,9 +77,6 @@ export function sanitizeStudent(
     ipadSerial: data.ipadSerial as string | undefined,
     smileNext: data.smileNext as SmileNextCredential | undefined,
     miraiSeed: data.miraiSeed as MiraiSeedCredential | undefined,
-    importedAt:
-      importedAt && typeof importedAt.toDate === 'function'
-        ? importedAt.toDate().toISOString()
-        : null,
+    importedAt: importedAtIso,
   };
 }
